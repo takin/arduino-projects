@@ -6,6 +6,7 @@
 
 unsigned long pingTimer[SENSOR_NUM];
 unsigned int distance[SENSOR_NUM];
+unsigned int new_distance[SENSOR_NUM];
 uint8_t currentSensor = 0;
 
 NewPing sonar[SENSOR_NUM] = {
@@ -26,7 +27,7 @@ void loop() {
     if ( millis() >= pingTimer[i]) {
       pingTimer[i] += PING_INTERVAL * SENSOR_NUM;
       
-      if ( i == 0 && currentSensor == SENSOR_NUM - 1 ) {
+      if ( i == 0 && currentSensor == SENSOR_NUM - 1 && distance[currentSensor] != new_distance[currentSensor]) {
         reportMeasurement();
       }
       
@@ -47,9 +48,13 @@ void echoCheck() {
 
 void reportMeasurement() {
   for ( uint8_t i = 0; i < SENSOR_NUM; i++ ) {
-    Serial.print("Bin 1x" + (i + 1));
-    Serial.print("Distance = " + distance[i]);
+    Serial.print("1x");
+    Serial.print(i + 1);
+    Serial.print("=");
+    Serial.print(distance[i] * 10);
+    if (i < (SENSOR_NUM - 1)) {
+      Serial.print(",");
+    }
   }
-  
   Serial.println();
 }
