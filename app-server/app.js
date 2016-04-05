@@ -5,14 +5,16 @@ var io = require('socket.io')(http);
 
 var serial = require('serialport');
 var SerialPort = serial.SerialPort;
+
 var sp = new SerialPort('/dev/ttyACM0', {
 	baudrate: 115200,
 	parser: serial.parsers.readline('\n')
 });
 
-// array of sensors data
-var sensorsData = [];
+// array object hasil pembacaan terakhir dari masing-masing sensor
+var lastReadingSensors = [];
 
+// var dumpSesnsorReading = ['1x1=10,1x2=40,1x3=13\n','1x1=10,1x2=40,1x3=13\n','1x1=10,1x2=40,1x3=15\n','1x1=10,1x2=20,1x3=15\n','1x1=5,1x2=40,1x3=15\n'];
 
 app.use(express.static('public'));
 
@@ -23,19 +25,23 @@ app.get('/', (req, res) => {
 io.on('connection', (socket) => {
 	console.log('client is connected!');
 
+	
 	sp.on('data', (sensorData) => {
 
-		handleSensorData(sensorData, (dataIsChanged) => {
-			if ( dataIsChanged ) {
-				socket.emit('message',sensorsData);
-			}
+		handleSensorData(sensorData, (reportData) => {
+			socket.emit('message',reportData);
 		});
 
 	});
+	
 
-	sp.on('error', () => {
-		socket.emmit('error','Sensor not detected!');
-	});
+	// setInterval(() => {
+	// 	var i = Math.floor(Math.random() * dumpSesnsorReading.length);
+	// 	handleSensorData(dumpSesnsorReading[i], (reportData) => {
+	// 		console.log(reportData);
+	// 		socket.emit('message', reportData);
+	// 	});
+	// },5000);
 
 });
 
@@ -44,40 +50,47 @@ http.listen(8000, () => {
 });
 
 
-
 function handleSensorData(data, callback) {
 
-	var splittedData = data.split(',');
-	var dataHasChanged = false;
+	/*
+	Kiriman data dari sensor dalam bentuk: 1x1=20,1x2=100,1x3=12
+	dimana angka di depan tanda 'x' menunjukkan baris rak dan angka di belakangnya
+	menunjukkan nomor kolom. Angka setelah '=' menunjukkan nilai pembacaan sensor
+	*/
+	// Pertama-tama kita pecah terlebih dahulu data menjadi array masing-masing sensor
+	var sensors = data.split(',');
 
-	splittedData.forEach(function (sensor) {
+	// Untuk masing-masing sensor kita lakukan proses pengecekan 
+	// dan pembentukan objek yang akan dikirimkan ke sisi client sebagai report
+	sensors.forEach( (sensor) => {
 
-		// split item sensor dan pembacaannya
-		var sensorItem = sensor.split('=');
-		console.log(sensorItem);
+		var sensorDataItems 	= sensor.split('='),
+			sensorLocation 		= sensorDataItems[0].split('x'),
+			sensorDataObject = {
+				sensor: {
+					row: sensorLocation[0],
+					column: sensorLocation[1]
+				},
+				value: parseInt(sensorDataItems[1])
+			};
+		var lastReadingCurrentSensor = lastReadingSensors.filter((item) => {
+			return item.sensor.row === sensorDataObject.sensor.row && item.sensor.column === sensorDataObject.sensor.column;
+		});
 
-		var sensordata = {
-			time: new Date(),
-			name: sensorItem[0],
-			value: sensorItem[1]
-		};
-
-		if ( sensorsData.length > 0 ) {
-
-			sensorsData.forEach(function (item) {
-				if ( item.name === sensorsData.name ) {
-					if ( sensorsData.value !== item.value ) {
-						item.value = sensorsData.value;
-						dataHasChanged = true;
-					}
-				}
-			});
+		if ( lastReadingCurrentSensor.length === 0 ) {
+			sensorDataObject.time = new Date;
+			lastReadingSensors.push(sensorDataObject);
+			callback.call(this, sensorDataObject);
 
 		} else {
-			sensorsData.append(sensorData);
+			var current = lastReadingCurrentSensor.pop();
+			if( sensorDataObject.value !== current.value && sensorDataObject.value != 0) {
+				sensorDataObject.time = new Date;
+
+				// ganti isi array dengan yang baru
+				lastReadingSensors[lastReadingSensors.indexOf(current)]  = sensorDataObject;
+				callback.call(this, sensorDataObject);
+			}
 		}
-
 	});
-
-//	callback.call(this, dataHasChanged);
 }

@@ -1,17 +1,16 @@
 #include <NewPing.h>
 
-#define SENSOR_NUM 2
+#define SENSOR_NUM 1
 #define MAX_DISTANCE 200
-#define PING_INTERVAL 33
+#define PING_INTERVAL 1000 // reading interval setiap 1 detik
 
 unsigned long pingTimer[SENSOR_NUM];
 unsigned int distance[SENSOR_NUM];
-unsigned int new_distance[SENSOR_NUM];
 uint8_t currentSensor = 0;
 
 NewPing sonar[SENSOR_NUM] = {
-  NewPing(4,5,MAX_DISTANCE),
-  NewPing(6,7,MAX_DISTANCE)
+  NewPing(4,5,MAX_DISTANCE) // trig, echo
+//  NewPing(6,7,MAX_DISTANCE)
 };
 
 void setup() {
@@ -27,7 +26,7 @@ void loop() {
     if ( millis() >= pingTimer[i]) {
       pingTimer[i] += PING_INTERVAL * SENSOR_NUM;
       
-      if ( i == 0 && currentSensor == SENSOR_NUM - 1 && distance[currentSensor] != new_distance[currentSensor]) {
+      if ( i == 0 && currentSensor == SENSOR_NUM - 1) {
         reportMeasurement();
       }
       

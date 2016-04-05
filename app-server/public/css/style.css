@@ -1,0 +1,27 @@
+#container {
+  width: 700px;
+  margin: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+table th, table td {
+  border: 1px solid #ccc;
+  
+}
+table th {
+  height: 40px;
+  background-color: rgb(200,245,120);
+}
+table tbody td {
+  height: 30px;
+  text-align: center;
+}
+table tbody tr:nth-of-type(even) {
+  background-color: rgb(240,255,240);
+}
+table tbody tr:hover {
+  background-color: rgba(200,255,200,.5);
+}
