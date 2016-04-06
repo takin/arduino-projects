@@ -1,18 +1,21 @@
-var express = require('express');
-var app = express();
-var http = require('http').Server(app);
-var io = require('socket.io')(http);
-
-var serial = require('serialport');
-var SerialPort = serial.SerialPort;
+var express 			= require('express'),
+	app 				= express(),
+	http 				= require('http').Server(app),
+	io 					= require('socket.io')(http),
+	serial 				= require('serialport'),
+	SerialPort 			= serial.SerialPort,
+	lastReadingSensors 	= [];
 
 var sp = new SerialPort('/dev/ttyACM0', {
 	baudrate: 115200,
 	parser: serial.parsers.readline('\n')
 });
 
+sp.on('error', (e) => {
+	console.log('Sensor not detected!');
+});
+
 // array object hasil pembacaan terakhir dari masing-masing sensor
-var lastReadingSensors = [];
 
 // var dumpSesnsorReading = ['1x1=10,1x2=40,1x3=13\n','1x1=10,1x2=40,1x3=13\n','1x1=10,1x2=40,1x3=15\n','1x1=10,1x2=20,1x3=15\n','1x1=5,1x2=40,1x3=15\n'];
 
@@ -22,36 +25,49 @@ app.get('/', (req, res) => {
 	res.sendFile(__dirname + '/public/index.html');
 });
 
-io.on('connection', (socket) => {
-	console.log('client is connected!');
+sp.on('open', () => {
+	io.on('connection', (socket) => {
+		console.log('a client connected');
 
-	
-	sp.on('data', (sensorData) => {
+		sp.on('data', (sensorData) => {
 
-		handleSensorData(sensorData, (reportData) => {
-			socket.emit('message',reportData);
+			var arrayOfSensorObjectData = handleSensorData(sensorData);
+			sp.pause();
+			arrayOfSensorObjectData.forEach(function(item) {
+
+				var current = lastReadingSensors.filter((lastItem) => {
+					return JSON.stringify(item.sensor) === JSON.stringify(lastItem.sensor);
+				});
+
+				if ( current.length === 0 ) {
+					if ( item.value !== 0 ) {
+						socket.emit('message', item);
+						lastReadingSensors.push(item);
+					}
+				} else {
+					current = current.pop();
+					if ( item.value !== 0 && current.value !== item.value ) {
+						socket.emit('message', item);
+						lastReadingSensors[lastReadingSensors.indexOf(current)] = item;
+					}
+				}
+
+			});
+			sp.resume();
 		});
 
+
 	});
-	
-
-	// setInterval(() => {
-	// 	var i = Math.floor(Math.random() * dumpSesnsorReading.length);
-	// 	handleSensorData(dumpSesnsorReading[i], (reportData) => {
-	// 		console.log(reportData);
-	// 		socket.emit('message', reportData);
-	// 	});
-	// },5000);
-
-});
+})
 
 http.listen(8000, () => {
 	console.log('server is running on port 8000');
 });
 
 
-function handleSensorData(data, callback) {
+function handleSensorData(data) {
 
+	var returnData = [];
 	/*
 	Kiriman data dari sensor dalam bentuk: 1x1=20,1x2=100,1x3=12
 	dimana angka di depan tanda 'x' menunjukkan baris rak dan angka di belakangnya
@@ -71,26 +87,12 @@ function handleSensorData(data, callback) {
 					row: sensorLocation[0],
 					column: sensorLocation[1]
 				},
+				time: new Date,
 				value: parseInt(sensorDataItems[1])
 			};
-		var lastReadingCurrentSensor = lastReadingSensors.filter((item) => {
-			return item.sensor.row === sensorDataObject.sensor.row && item.sensor.column === sensorDataObject.sensor.column;
-		});
 
-		if ( lastReadingCurrentSensor.length === 0 ) {
-			sensorDataObject.time = new Date;
-			lastReadingSensors.push(sensorDataObject);
-			callback.call(this, sensorDataObject);
-
-		} else {
-			var current = lastReadingCurrentSensor.pop();
-			if( sensorDataObject.value !== current.value && sensorDataObject.value != 0) {
-				sensorDataObject.time = new Date;
-
-				// ganti isi array dengan yang baru
-				lastReadingSensors[lastReadingSensors.indexOf(current)]  = sensorDataObject;
-				callback.call(this, sensorDataObject);
-			}
-		}
+		returnData.push(sensorDataObject);
 	});
+
+	return returnData;
 }

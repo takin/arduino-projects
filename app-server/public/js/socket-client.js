@@ -1,12 +1,13 @@
 'use strict';
 
-$(document).ready(function() {
+var socket = io();
 
-	var socket = io();
+$(document).ready(function() {
 
 	socket.on('message', function(data) {
 		appendData(data);
 	});
+
 });
 
 
@@ -24,7 +25,7 @@ function appendData(data) {
 
 	sensorRow.appendChild(document.createTextNode(data.sensor.row));
 	sensorcolumn.appendChild(document.createTextNode(data.sensor.column));
-	sensorReadingTime.appendChild(document.createTextNode(time.getFullYear() + '-' + time.getMonth() + '-' + time.getDate() + ' ' + time.getHours() + ':' + time.getMinutes() + ':' + time.getSeconds() + '.' + time.getMilliseconds()));
+	sensorReadingTime.appendChild(document.createTextNode(time.getFullYear() + '-' + time.getMonth() + '-' + time.getDate() + ' ' + time.getHours() + ':' + time.getMinutes() + ':' + time.getSeconds()));
 	sensorReadingValue.appendChild(document.createTextNode(data.value));
 
 	tableRow.appendChild(sensorRow);
